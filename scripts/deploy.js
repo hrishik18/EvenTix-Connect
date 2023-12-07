@@ -5,6 +5,10 @@
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
 const { ethers } = require("hardhat");
+//const QRCode = require('qrcode');
+const qr = require('qr-image');
+const fs = require('fs');
+const axios = require('axios');
 
 // async function main() {
 //   const currentTimestampInSeconds = Math.round(Date.now() / 1000);
@@ -25,9 +29,71 @@ const { ethers } = require("hardhat");
 //   );
 // }
 
+// Upload file to IPFS
+// async function uploadFileToIPFS(file) {
+//   try {
+//     const response = await ipfs.add(file);
+//     console.log('IPFS Hash:', response.cid.toString());
+//     return response.cid.toString();
+//   } catch (error) {
+//     console.error('Error uploading file to IPFS:', error);
+//   }
+// }
+
+const PINATA_API_ENDPOINT = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
+const PINATA_API_KEY = 'a05ad712c99de7854cac';
+const PINATA_SECRET_API_KEY = 'd1e54a30812eead0014452cbfc1c50228d965d09c6afa6bef58eb09eb2dfbcca';
+
+// Upload file to Pinata
+async function uploadFileToPinata(file) {
+  try {
+    const response = await axios.post(PINATA_API_ENDPOINT, file, {
+      headers: {
+        'Content-Type': 'json/application',
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_API_KEY,
+      },
+    });
+    console.log('IPFS Hash:', response.data.IpfsHash);
+    return "https://gateway.pinata.cloud/ipfs/" + response.data.IpfsHash;
+  } catch (error) {
+    console.error('Error uploading file to Pinata:', error.response.data);
+  }
+}
+
+const uploadJSONToIPFS = async (JSONBody) => {
+  //api endpoint for uploading json to IPFS
+  const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
+
+  const pinataData = {
+    pinataContent: JSONBody,
+  };
+
+  //making axios POST request to Pinata ⬇️
+  return axios
+    .post(url, pinataData, {
+      headers: {
+        pinata_api_key: PINATA_API_KEY,
+        pinata_secret_api_key: PINATA_SECRET_API_KEY,
+      },
+    })
+    .then(function (response) {
+      return {
+        success: true,
+        pinataURL:
+          "https://gateway.pinata.cloud/ipfs/" + response.data.IpfsHash,
+      };
+    })
+    .catch(function (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    });
+};
+
 async function main() {
   const accounts = await ethers.getSigners();
-  console.log("Allt accounts are", accounts[0]);
   console.log("Account address:", accounts[0].address);//, "The amount in account is", ethers.utils.formatEther(balance1), "ETH");
 
   const Amount = hre.ethers.parseEther("0.001");
@@ -39,6 +105,12 @@ async function main() {
   console.log("Contract address: the whole", contract);
   const currentTimestampInSeconds = Math.round(Date.now() / 1000);
 
+
+  // Read the image file as a buffer
+  const fileBuffer = fs.readFileSync('sample1.jpeg');
+
+  const ipfshash = await uploadFileToPinata(fileBuffer);
+  console.log("The ipfs hash is", ipfshash);
   await contract.createEvent(
     "Sample Event",
     currentTimestampInSeconds,
@@ -49,6 +121,51 @@ async function main() {
   );
   const events = await contract.getAllEvents();
   console.log("The events are", events);
+
+  // Sample JSON object
+  const jsonObject = {
+    name: 'John Doe',
+    email: 'john@example.com',
+    phoneNumber: '7559360215',
+    seatNumber: 'A1',
+    type: 'VIP',
+  };
+
+  // Convert JSON object to string
+  const jsonString = JSON.stringify(jsonObject);
+  const buffer = Buffer.from(jsonString);
+  console.log("The json string is", jsonString);
+
+  const qrImage = qr.imageSync(jsonString, { type: 'png' });
+
+  // Write the buffer to a file
+  fs.writeFileSync('./qrcode.png', qrImage, (err) => {
+    if (err) {
+      console.error('Error generating QR code:', err);
+    } else {
+      console.log('QR code generated successfully!');
+    }
+  });
+
+
+  const _eventId = 0;
+  const _QRCode = await uploadJSONToIPFS(jsonObject);
+  const _price = hre.ethers.parseEther("0.185");
+  const buyTicketTx = await contract.buyTicket(_eventId, _QRCode, _price);
+  await buyTicketTx.wait();
+
+  // Call other functions if needed and log the results
+  const ticket = await contract.getTicketById(0);
+  console.log("Ticket Details:", ticket);
+
+  const ticketsByEvent = await contract.getTicketIdsByEvent(_eventId);
+  console.log("Tickets by Event ID:", ticketsByEvent);
+
+  const ticketsByOwner = await contract.getTicketIdsByOwner(accounts[0].address);
+  console.log("Tickets by Owner:", ticketsByOwner);
+
+  const isTicketOwner = await contract.verifyTicketOwner(accounts[0].address, 0);
+  console.log("Is Ticket Owner:", isTicketOwner);
 }
 
 main()
@@ -57,3 +174,4 @@ main()
     console.error(error);
     process.exit(1);
   });
+

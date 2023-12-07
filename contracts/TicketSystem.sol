@@ -63,6 +63,19 @@ contract TicketSystem is ERC1155, Ownable {
     // ) internal override(ERC721, ) returns (address) {
     //     return super._update(to, ticketId, auth);
     // }
+    function uri(
+        uint256 _tokenid
+    ) public pure override returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "https://ipfs.io/ipfs/bafybeihjjkwdrxxjnuwevlqtqmh3iegcadc32sio4wmo7bv2gbf34qs34a/",
+                    Strings.toString(_tokenid),
+                    ".json"
+                )
+            );
+    }
+
     function setURI(string memory newuri) public onlyOwner {
         _setURI(newuri);
     }

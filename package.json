@@ -26,7 +26,11 @@
   "homepage": "https://github.com/hrishik18/EvenTix-Connect#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3",
-    "hardhat": "^2.19.2"
+    "axios": "^1.6.2",
+    "hardhat": "^2.19.2",
+    "ipfs-http-client": "^60.0.1",
+    "qr-image": "^3.2.0",
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^3.0.0"
