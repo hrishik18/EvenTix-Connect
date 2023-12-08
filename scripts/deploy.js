@@ -41,23 +41,38 @@ const axios = require('axios');
 // }
 
 const PINATA_API_ENDPOINT = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
-const PINATA_API_KEY = 'a05ad712c99de7854cac';
-const PINATA_SECRET_API_KEY = 'd1e54a30812eead0014452cbfc1c50228d965d09c6afa6bef58eb09eb2dfbcca';
+const PINATA_API_KEY = '3dbc496fb6aa96900081';
+const PINATA_SECRET_API_KEY = '560f60d24b64a2c050ada3d41a264db0d54518fee054b7c7a8db07ad2c1b43a0';
 
 // Upload file to Pinata
-async function uploadFileToPinata(file) {
+async function uploadFileToPinata() {
   try {
-    const response = await axios.post(PINATA_API_ENDPOINT, file, {
+    const fileBuffer = fs.readFileSync('sample1.jpeg');
+
+    const fileBlob = new Blob([fileBuffer], { type: 'image/jpeg' });
+
+    // Create FormData and append file
+    const data = new FormData();
+    data.append('file', fileBlob, 'sample1.jpeg');
+
+    const metadata = {
+      name: 'EventBanner', // Name for the metadata
+      keyvalues: {
+        exampleKey: 'exampleValue', //key value pairs 
+      },
+    };
+    data.append('pinataMetadata', JSON.stringify(metadata));
+    const response = await axios.post(PINATA_API_ENDPOINT, data, {
       headers: {
         'Content-Type': 'json/application',
         pinata_api_key: PINATA_API_KEY,
         pinata_secret_api_key: PINATA_SECRET_API_KEY,
       },
     });
-    console.log('IPFS Hash:', response.data.IpfsHash);
+    console.log('IPFS file upload response :', response);
     return "https://gateway.pinata.cloud/ipfs/" + response.data.IpfsHash;
   } catch (error) {
-    console.error('Error uploading file to Pinata:', error.response.data);
+    console.error('Error uploading file to Pinata:', error);
   }
 }
 
@@ -106,16 +121,13 @@ async function main() {
   const currentTimestampInSeconds = Math.round(Date.now() / 1000);
 
 
-  // Read the image file as a buffer
-  const fileBuffer = fs.readFileSync('sample1.jpeg');
-
-  const ipfshash = await uploadFileToPinata(fileBuffer);
+  const ipfshash = await uploadFileToPinata();
   console.log("The ipfs hash is", ipfshash);
   await contract.createEvent(
     "Sample Event",
     currentTimestampInSeconds,
     accounts[0], // Example organizer address
-    "https://sample-image-url.com/image.jpg", // Example image URL
+    ipfshash, // Example image URL
     "Mumbai, event hall", // Example location details
     100 // Example maximum supply
   );
@@ -134,7 +146,6 @@ async function main() {
   // Convert JSON object to string
   const jsonString = JSON.stringify(jsonObject);
   const buffer = Buffer.from(jsonString);
-  console.log("The json string is", jsonString);
 
   const qrImage = qr.imageSync(jsonString, { type: 'png' });
 
@@ -150,6 +161,7 @@ async function main() {
 
   const _eventId = 0;
   const _QRCode = await uploadJSONToIPFS(jsonObject);
+  console.log("//////////////QR Code", _QRCode.pinataURL);
   const _price = hre.ethers.parseEther("0.185");
   const buyTicketTx = await contract.buyTicket(_eventId, _QRCode, _price);
   await buyTicketTx.wait();
